@@ -187,7 +187,8 @@ const mem = {
 const S = Object.assign({num:'',code:'0000',P:1,T:210,W:0,E:0,G:1,F:1,X:0}, mem.get('state',{}));
 const save = () => mem.set('state',S);
 const clean = n => n.replace(/[^\d+]/g,'');
-const smsText = () => `${S.code} 1${S.X} 2${S.F} A P${S.P} T${S.T} W${S.W} E${S.E} G${S.G}`;
+// Heizung aus: so, wie die Original-App es geschickt hat (Kurzform ohne T/W/E/G)
+const smsText = () => S.P ? `${S.code} 1${S.X} 2${S.F} A P1 T${S.T} W${S.W} E${S.E} G${S.G}` : `${S.code} 1${S.X} 2${S.F} A P0`;
 const href = t => S.num ? `sms:${clean(S.num)}?&body=${encodeURIComponent(t)}` : '#';
 
 function toast(m){ const t=$('toast'); t.textContent=m; t.hidden=false; clearTimeout(toast.h); toast.h=setTimeout(()=>t.hidden=true,2200); }

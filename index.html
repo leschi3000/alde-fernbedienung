@@ -57,6 +57,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:4px
 .tin input:focus{outline:none;border-bottom-color:var(--heat)}
 .tin small{font-size:1.4rem;font-weight:500;color:var(--muted)}
 .off-state .tin input{color:var(--muted)}
+.tin-s input{font-size:2.2rem;width:1.6em}
+.tin-s small{font-size:1rem}
 
 /* Schalter */
 .switch{position:relative;width:58px;height:34px;flex:none}
@@ -171,7 +173,7 @@ footer{font-size:.78rem;color:var(--muted);text-align:center;padding:4px 8px}
       <label class="switch" aria-label="Frostwarnung"><input type="checkbox" id="aT" role="switch"><span></span></label></div>
     <div class="temp" id="aTempBox" style="grid-template-columns:48px 1fr 48px;margin:0">
       <button class="round" id="aMinus" aria-label="Warnschwelle senken" style="width:48px;height:48px;font-size:1.6rem">−</button>
-      <output id="aOut" style="font-size:2.2rem">2 <small>°C</small></output>
+      <label class="tin tin-s"><input id="aIn" type="text" inputmode="numeric" enterkeyhint="done" autocomplete="off" aria-label="Frostwarnung ab Grad Celsius"><small>°C</small></label>
       <button class="round" id="aPlus" aria-label="Warnschwelle erhöhen" style="width:48px;height:48px;font-size:1.6rem">+</button>
     </div>
     <div class="sep"></div>
@@ -253,7 +255,7 @@ function render(){
   $('bSend').href = href(txt); $('bStatus').href = href(`${S.code} 4`);
   $('bSend').textContent = heat ? (S.P ? 'Heizung senden' : 'Heizung aus senden') : 'Warnungen senden';
   for(const k of ['aT','aV','aX','aE']) $(k).checked=!!S[k];
-  $('aOut').innerHTML = S.aTh + ' <small>°C</small>';
+  if (document.activeElement !== $('aIn')) $('aIn').value = S.aTh;
   $('aTempBox').hidden = !S.aT;
 }
 let view = 'heat';
@@ -284,6 +286,16 @@ $('tIn').addEventListener('change', setTemp);
 $('tIn').addEventListener('blur', setTemp);
 $('tIn').addEventListener('focus', e => e.target.select());
 $('tIn').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+// Frostwarnung eintippen: ganze Grad, 1–15 °C
+function setATh(){
+  const v = parseInt($('aIn').value, 10);
+  if (!isNaN(v)) { S.aTh = Math.min(15, Math.max(1, v)); save(); }
+  render();
+}
+$('aIn').addEventListener('change', setATh);
+$('aIn').addEventListener('blur', setATh);
+$('aIn').addEventListener('focus', e => e.target.select());
+$('aIn').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 $('tMinus').onclick=()=>{ S.T=Math.max(50,S.T-5); save(); render(); };
 $('tPlus').onclick=()=>{ S.T=Math.min(300,S.T+5); save(); render(); };
 for(const [id,k] of [['cP','P'],['cG','G'],['cF','F'],['cX','X']]) $(id).onchange=e=>{ S[k]=e.target.checked?1:0; save(); render(); };
@@ -297,7 +309,7 @@ $('smsPreview').onclick=()=>{ try{ navigator.clipboard.writeText(smsText()).then
 render();
 
 // Neue Fassung? Beim Öffnen und beim Zurückkehren in die App prüfen und dann frisch laden.
-const VERSION = '6';
+const VERSION = '7';
 async function checkUpdate(){
   try{
     const r = await fetch('version.txt?t=' + Date.now(), {cache:'no-store'});

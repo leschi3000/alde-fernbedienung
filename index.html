@@ -278,6 +278,18 @@ $('bSave').onclick=()=>{
 };
 $('smsPreview').onclick=()=>{ try{ navigator.clipboard.writeText(smsText()).then(()=>toast('SMS-Text kopiert')).catch(()=>{}); }catch(e){} };
 render();
+
+// Neue Fassung? Beim Öffnen und beim Zurückkehren in die App prüfen und dann frisch laden.
+const VERSION = '5';
+async function checkUpdate(){
+  try{
+    const r = await fetch('version.txt?t=' + Date.now(), {cache:'no-store'});
+    const v = (await r.text()).trim();
+    if (r.ok && v && v !== VERSION) location.replace(location.pathname + '?v=' + v);
+  }catch(e){}
+}
+checkUpdate();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 </script>
 </body>
 </html>

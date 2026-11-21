@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Alde">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4f1ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Alde Fernbedienung</title>
+<style>
+/* Layout: eine Spalte wie ein Bedienteil – Temperatur groß oben, Schalter darunter, Senden-Leiste unten fest */
+:root{
+  --bg:#f4f1ee; --card:#ffffff; --fg:#1b1d21; --muted:#6c6f76; --line:#e6e1dc; --track:#ece8e3;
+  --heat:#e2622b; --heat-soft:#fbe6dc; --on-heat:#ffffff;
+  --cool:#3d6f96; --ok:#2f8a57;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --round:"SF Pro Rounded",ui-rounded,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#121417; --card:#1c1f24; --fg:#eef0f3; --muted:#9aa0a8; --line:#2b2f36; --track:#262a31;
+  --heat:#ff7a45; --heat-soft:#3a2219; --on-heat:#1a0c05; --cool:#78a9d1; --ok:#6fcf97; color-scheme:dark}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:14px calc(150px + env(safe-area-inset-bottom,0px))}
+[hidden]{display:none!important}
+.app{max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+header{display:flex;align-items:center;justify-content:space-between;padding:4px 2px}
+.brand{display:flex;flex-direction:column}
+.brand b{font-family:var(--round);font-size:1.6rem;letter-spacing:-.02em}
+.brand span{font-size:.8rem;color:var(--muted)}
+.icon-btn{width:40px;height:40px;border-radius:50%;border:0;background:var(--card);color:var(--fg);display:grid;place-items:center;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.icon-btn svg{width:20px;height:20px}
+.card{background:var(--card);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.label{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+
+/* Temperatur */
+.hero{gap:6px;align-items:stretch}
+.hero-top{display:flex;justify-content:space-between;align-items:center}
+.temp{display:grid;grid-template-columns:64px 1fr 64px;align-items:center;gap:8px;margin-block:6px}
+.temp output{font-family:var(--round);font-size:4.2rem;font-weight:600;text-align:center;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1}
+.temp output small{font-size:1.4rem;font-weight:500;color:var(--muted);margin-left:2px}
+.round{width:64px;height:64px;border-radius:50%;border:0;background:var(--track);color:var(--fg);font-size:2rem;line-height:1;cursor:pointer}
+.round:active{transform:scale(.96)}
+.off-state .temp output{color:var(--muted)}
+
+/* Schalter */
+.switch{position:relative;width:58px;height:34px;flex:none}
+.switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:1}
+.switch span{position:absolute;inset:0;border-radius:999px;background:var(--track);transition:background .2s}
+.switch span::after{content:"";position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.switch input:checked + span{background:var(--heat)}
+.switch input:checked + span::after{transform:translateX(24px)}
+.switch input:focus-visible + span{outline:3px solid var(--heat);outline-offset:2px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px}
+.row .t{display:flex;flex-direction:column}
+.row .t small{color:var(--muted);font-size:.8rem}
+.sep{height:1px;background:var(--line);margin-inline:-2px}
+
+/* Segment */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--track);border-radius:12px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;color:var(--fg);font:inherit;font-size:.92rem;font-weight:500;padding:9px 4px;border-radius:9px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:650}
+.field-block{display:flex;flex-direction:column;gap:8px}
+
+/* Leiste unten */
+.bar{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);padding:10px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.bar-in{max-width:440px;margin:0 auto;display:grid;grid-template-columns:1fr 2fr;gap:10px}
+.sms{grid-column:1/-1;font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center;overflow-wrap:anywhere;cursor:pointer}
+.btn{display:flex;align-items:center;justify-content:center;min-height:54px;border-radius:16px;font-weight:650;font-size:1.02rem;text-decoration:none;border:0;cursor:pointer;font-family:inherit;padding:0 10px;text-align:center}
+.btn-main{background:var(--heat);color:var(--on-heat)}
+.btn-sec{background:var(--card);color:var(--fg);border:1px solid var(--line)}
+.btn:active{transform:scale(.98)}
+
+/* Einstellungen */
+.sheet{gap:12px}
+.sheet h2{margin:0;font-family:var(--round);font-size:1.2rem}
+.in{display:flex;flex-direction:column;gap:5px}
+.in label{font-size:.85rem;color:var(--muted)}
+.in input{font:inherit;font-size:17px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%;min-width:0}
+.in input:focus-visible{outline:3px solid var(--heat);outline-offset:1px}
+.hint{font-size:.82rem;color:var(--muted);margin:0}
+.setup{background:var(--heat-soft)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:.9rem;z-index:5}
+footer{font-size:.78rem;color:var(--muted);text-align:center;padding:4px 8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><b>Alde</b><span id="numShow">Wohnwagen-Heizung</span></div>
+    <button class="icon-btn" id="openSettings" aria-label="Einstellungen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <section class="card setup" id="setup" hidden>
+    <b>Einmal einrichten</b>
+    <p class="hint">Oben rechts auf das Zahnrad tippen und die Nummer der SIM-Karte im Wohnwagen eintragen.</p>
+  </section>
+
+  <section class="card hero" id="hero">
+    <div class="hero-top">
+      <span class="label">Heizung</span>
+      <label class="switch" aria-label="Heizung an oder aus"><input type="checkbox" id="cP" role="switch"><span></span></label>
+    </div>
+    <div class="temp">
+      <button class="round" id="tMinus" aria-label="Kälter">−</button>
+      <output id="tOut" aria-live="polite">21,0<small>°C</small></output>
+      <button class="round" id="tPlus" aria-label="Wärmer">+</button>
+    </div>
+    <span class="hint" id="pHint" style="text-align:center">Zieltemperatur innen</span>
+  </section>
+
+  <section class="card">
+    <span class="label">Energie</span>
+    <div class="row"><div class="t">Gas<small>Brenner</small></div>
+      <label class="switch" aria-label="Gas"><input type="checkbox" id="cG" role="switch"><span></span></label></div>
+    <div class="sep"></div>
+    <div class="field-block"><div class="t">Strom (230 V)</div>
+      <div class="seg" id="sE" role="group" aria-label="Elektro-Heizstab">
+        <button data-v="0">Aus</button><button data-v="1">1 kW</button><button data-v="2">2 kW</button><button data-v="3">3 kW</button></div>
+      <p class="hint">Nur sinnvoll, wenn der Wohnwagen am Landstrom hängt.</p></div>
+  </section>
+
+  <section class="card">
+    <span class="label">Warmwasser</span>
+    <div class="seg" id="sW" role="group" aria-label="Warmwasser">
+      <button data-v="0">Aus</button><button data-v="1">Normal</button><button data-v="2">Boost</button></div>
+  </section>
+
+  <section class="card">
+    <span class="label">Weiteres</span>
+    <div class="row"><div class="t">Kühlschrank<small>nur falls angeschlossen</small></div>
+      <label class="switch" aria-label="Kühlschrank"><input type="checkbox" id="cF" role="switch"><span></span></label></div>
+    <div class="sep"></div>
+    <div class="row"><div class="t">Zusatzausgang<small>z. B. Licht – nur falls angeschlossen</small></div>
+      <label class="switch" aria-label="Zusatzausgang"><input type="checkbox" id="cX" role="switch"><span></span></label></div>
+    <div class="sep"></div>
+    <div class="row"><div class="t">Alarme aktiv<small>Frost, Batterie, Störungen – per SMS</small></div>
+      <span class="hint" style="color:var(--ok);font-weight:600">immer an</span></div>
+  </section>
+
+  <section class="card sheet" id="settings" hidden>
+    <h2>Einstellungen</h2>
+    <div class="in"><label for="iNum">Nummer der SIM im Wohnwagen</label><input id="iNum" type="tel" inputmode="tel" placeholder="z. B. 0162 …" autocomplete="off"></div>
+    <div class="in"><label for="iCode">Zugangscode (ab Werk 0000)</label><input id="iCode" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off"></div>
+    <button class="btn btn-main" id="bSave">Speichern</button>
+    <p class="hint">Nummer und Code bleiben nur auf diesem Handy.</p>
+    <div class="sep"></div>
+    <div class="in"><label for="iNew">Zugangscode ändern – neuer Code (4 Ziffern)</label><input id="iNew" inputmode="numeric" maxlength="4" autocomplete="off"></div>
+    <a class="btn btn-sec" id="bCode" href="#">Code-Änderung per SMS senden</a>
+    <p class="hint">Erst wenn das Modul mit einer SMS antwortet, oben den neuen Code eintragen und speichern. Code vergessen? Weißen Knopf am Modul 10 Sekunden drücken – dann gilt wieder 0000.</p>
+  </section>
+
+  <footer>Nach dem Senden antwortet der Wohnwagen per SMS mit dem aktuellen Stand. Kommt nichts: Strom am Wohnwagen prüfen.</footer>
+</div>
+
+<div class="bar">
+  <div class="bar-in">
+    <div class="sms" id="smsPreview" title="Antippen zum Kopieren"></div>
+    <a class="btn btn-sec" id="bStatus" href="#">Status</a>
+    <a class="btn btn-main" id="bSend" href="#">Senden</a>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// Alde Smart Control – SMS-Aufbau:
+// CODE  1x (Zusatzausgang 0/1)  2x (Kühlschrank 0/1)  A (Alarme)  P (Heizung 0/1)  T (Temp. in Zehntelgrad)  W (Warmwasser 0/1/2)  E (Strom 0–3 kW)  G (Gas 0/1)
+// Status-Abfrage: CODE 4 · Code ändern: CODE 9NEUNEU
+const $ = id => document.getElementById(id);
+const mem = {
+  get(k,d){ try{ const v=localStorage.getItem('alde.'+k); return v===null?d:JSON.parse(v);}catch(e){return d} },
+  set(k,v){ try{ localStorage.setItem('alde.'+k,JSON.stringify(v)); }catch(e){} }
+};
+const S = Object.assign({num:'',code:'0000',P:1,T:210,W:0,E:0,G:1,F:1,X:0}, mem.get('state',{}));
+const save = () => mem.set('state',S);
+const clean = n => n.replace(/[^\d+]/g,'');
+const smsText = () => `${S.code} 1${S.X} 2${S.F} A P${S.P} T${S.T} W${S.W} E${S.E} G${S.G}`;
+const href = t => S.num ? `sms:${clean(S.num)}?&body=${encodeURIComponent(t)}` : '#';
+
+function toast(m){ const t=$('toast'); t.textContent=m; t.hidden=false; clearTimeout(toast.h); toast.h=setTimeout(()=>t.hidden=true,2200); }
+function seg(id,key){
+  $(id).querySelectorAll('button').forEach(b=>{
+    b.setAttribute('aria-pressed', String(+b.dataset.v===S[key]));
+    b.onclick=()=>{ S[key]=+b.dataset.v; save(); render(); };
+  });
+}
+function render(){
+  $('numShow').textContent = S.num ? 'SIM ' + S.num : 'Wohnwagen-Heizung';
+  $('setup').hidden = !!S.num;
+  $('tOut').innerHTML = (S.T/10).toFixed(1).replace('.',',') + '<small>°C</small>';
+  $('cP').checked=!!S.P; $('cG').checked=!!S.G; $('cF').checked=!!S.F; $('cX').checked=!!S.X;
+  $('hero').classList.toggle('off-state',!S.P);
+  $('pHint').textContent = S.P ? 'Zieltemperatur innen' : 'Heizung wird ausgeschaltet';
+  seg('sE','E'); seg('sW','W');
+  $('smsPreview').textContent = S.num ? `an ${S.num}: ${smsText()}` : smsText();
+  $('bSend').href = href(smsText()); $('bStatus').href = href(`${S.code} 4`);
+  $('bSend').textContent = S.P ? 'Senden' : 'Heizung aus senden';
+}
+function needNum(ev){
+  if(S.num) return false;
+  ev.preventDefault(); $('settings').hidden=false; $('iNum').focus(); toast('Erst die Nummer eintragen'); return true;
+}
+$('bSend').addEventListener('click',ev=>{ if(!needNum(ev)) $('bSend').href=href(smsText()); });
+$('bStatus').addEventListener('click',ev=>{ if(!needNum(ev)) $('bStatus').href=href(`${S.code} 4`); });
+$('bCode').addEventListener('click',ev=>{
+  const n=$('iNew').value.trim();
+  if(needNum(ev)) return;
+  if(!/^\d{4}$/.test(n)){ ev.preventDefault(); toast('Neuer Code: genau 4 Ziffern'); return; }
+  $('bCode').href=href(`${S.code} 9${n}${n}`);
+});
+$('tMinus').onclick=()=>{ S.T=Math.max(50,S.T-5); save(); render(); };
+$('tPlus').onclick=()=>{ S.T=Math.min(300,S.T+5); save(); render(); };
+for(const [id,k] of [['cP','P'],['cG','G'],['cF','F'],['cX','X']]) $(id).onchange=e=>{ S[k]=e.target.checked?1:0; save(); render(); };
+$('openSettings').onclick=()=>{ const s=$('settings'); s.hidden=!s.hidden; if(!s.hidden){ $('iNum').value=S.num; $('iCode').value=S.code; s.scrollIntoView({block:'start'}); } };
+$('bSave').onclick=()=>{
+  const c=$('iCode').value.trim()||'0000';
+  if(!/^\d{4}$/.test(c)){ toast('Code: genau 4 Ziffern'); return; }
+  S.num=$('iNum').value.trim(); S.code=c; save(); render(); $('settings').hidden=true; toast('Gespeichert');
+};
+$('smsPreview').onclick=()=>{ try{ navigator.clipboard.writeText(smsText()).then(()=>toast('SMS-Text kopiert')).catch(()=>{}); }catch(e){} };
+render();
+</script>
+</body>
+</html>

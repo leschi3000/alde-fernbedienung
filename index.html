@@ -51,6 +51,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:4px
 .round{width:64px;height:64px;border-radius:50%;border:0;background:var(--track);color:var(--fg);font-size:2rem;line-height:1;cursor:pointer}
 .round:active{transform:scale(.96)}
 .off-state .temp output{color:var(--muted)}
+.tin{display:flex;align-items:baseline;justify-content:center;gap:2px;cursor:text;min-width:0}
+.tin input{font-family:var(--round);font-size:3.8rem;font-weight:600;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1.05;
+  width:2.3em;min-width:0;text-align:center;border:0;border-bottom:2px dashed var(--line);border-radius:0;background:transparent;color:var(--fg);padding:0}
+.tin input:focus{outline:none;border-bottom-color:var(--heat)}
+.tin small{font-size:1.4rem;font-weight:500;color:var(--muted)}
+.off-state .tin input{color:var(--muted)}
 
 /* Schalter */
 .switch{position:relative;width:58px;height:34px;flex:none}
@@ -124,7 +130,7 @@ footer{font-size:.78rem;color:var(--muted);text-align:center;padding:4px 8px}
     </div>
     <div class="temp">
       <button class="round" id="tMinus" aria-label="Kälter">−</button>
-      <output id="tOut" aria-live="polite">21,0<small>°C</small></output>
+      <label class="tin"><input id="tIn" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" aria-label="Zieltemperatur in Grad Celsius"><small>°C</small></label>
       <button class="round" id="tPlus" aria-label="Wärmer">+</button>
     </div>
     <span class="hint" id="pHint" style="text-align:center">Zieltemperatur innen</span>
@@ -145,6 +151,7 @@ footer{font-size:.78rem;color:var(--muted);text-align:center;padding:4px 8px}
     <span class="label">Warmwasser</span>
     <div class="seg" id="sW" role="group" aria-label="Warmwasser">
       <button data-v="0">Aus</button><button data-v="1">Normal</button><button data-v="2">Boost</button></div>
+    <p class="hint">Steht in der Antwort trotzdem „NORMAL", nimmt euer Bedienteil „Aus" nicht an – das ist harmlos.</p>
   </section>
 
   <section class="card">
@@ -233,7 +240,7 @@ function seg(id,key){
 function render(){
   $('numShow').textContent = S.num ? 'SIM ' + S.num : 'Wohnwagen-Heizung';
   $('setup').hidden = !!S.num;
-  $('tOut').innerHTML = (S.T/10).toFixed(1).replace('.',',') + '<small>°C</small>';
+  if (document.activeElement !== $('tIn')) $('tIn').value = (S.T/10).toFixed(1).replace('.',',');
   $('cP').checked=!!S.P; $('cG').checked=!!S.G; $('cF').checked=!!S.F; $('cX').checked=!!S.X;
   $('hero').classList.toggle('off-state',!S.P);
   $('pHint').textContent = S.P ? 'Zieltemperatur innen' : 'Heizung wird ausgeschaltet';
@@ -267,6 +274,16 @@ $('bCode').addEventListener('click',ev=>{
 for(const k of ['aT','aV','aX','aE']) $(k).onchange=e=>{ S[k]=e.target.checked?1:0; save(); render(); };
 $('aMinus').onclick=()=>{ S.aTh=Math.max(1,S.aTh-1); save(); render(); };
 $('aPlus').onclick=()=>{ S.aTh=Math.min(15,S.aTh+1); save(); render(); };
+// Temperatur eintippen: Komma oder Punkt, auf halbe Grad gerundet, 5–30 °C
+function setTemp(){
+  const v = parseFloat($('tIn').value.replace(',','.'));
+  if (!isNaN(v)) { S.T = Math.round(Math.min(30, Math.max(5, v)) * 2) * 5; save(); }
+  render();
+}
+$('tIn').addEventListener('change', setTemp);
+$('tIn').addEventListener('blur', setTemp);
+$('tIn').addEventListener('focus', e => e.target.select());
+$('tIn').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 $('tMinus').onclick=()=>{ S.T=Math.max(50,S.T-5); save(); render(); };
 $('tPlus').onclick=()=>{ S.T=Math.min(300,S.T+5); save(); render(); };
 for(const [id,k] of [['cP','P'],['cG','G'],['cF','F'],['cX','X']]) $(id).onchange=e=>{ S[k]=e.target.checked?1:0; save(); render(); };
@@ -280,7 +297,7 @@ $('smsPreview').onclick=()=>{ try{ navigator.clipboard.writeText(smsText()).then
 render();
 
 // Neue Fassung? Beim Öffnen und beim Zurückkehren in die App prüfen und dann frisch laden.
-const VERSION = '5';
+const VERSION = '6';
 async function checkUpdate(){
   try{
     const r = await fetch('version.txt?t=' + Date.now(), {cache:'no-store'});

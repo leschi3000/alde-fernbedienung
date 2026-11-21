@@ -70,6 +70,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:4px
 .seg button{border:0;background:transparent;color:var(--fg);font:inherit;font-size:.92rem;font-weight:500;padding:9px 4px;border-radius:9px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:650}
 .field-block{display:flex;flex-direction:column;gap:8px}
+.view{display:flex;flex-direction:column;gap:12px}
+.tabs{border-radius:14px;padding:4px}
+.tabs button{padding:11px 4px;font-size:1rem;border-radius:11px}
 
 /* Leiste unten */
 .bar{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
@@ -109,6 +112,11 @@ footer{font-size:.78rem;color:var(--muted);text-align:center;padding:4px 8px}
     <p class="hint">Oben rechts auf das Zahnrad tippen und die Nummer der SIM-Karte im Wohnwagen eintragen.</p>
   </section>
 
+  <div class="seg tabs" id="tabs" role="group" aria-label="Bereich">
+    <button data-view="heat">Heizung</button><button data-view="alarm">Warnungen</button>
+  </div>
+
+  <div class="view" id="viewHeat">
   <section class="card hero" id="hero">
     <div class="hero-top">
       <span class="label">Heizung</span>
@@ -147,7 +155,9 @@ footer{font-size:.78rem;color:var(--muted);text-align:center;padding:4px 8px}
     <div class="row"><div class="t">Zusatzausgang<small>z. B. Licht – nur falls angeschlossen</small></div>
       <label class="switch" aria-label="Zusatzausgang"><input type="checkbox" id="cX" role="switch"><span></span></label></div>
   </section>
+  </div>
 
+  <div class="view" id="viewAlarm" hidden>
   <section class="card">
     <span class="label">Warnungen per SMS</span>
     <div class="row"><div class="t">Frostwarnung<small>wenn es innen kälter wird als</small></div>
@@ -166,10 +176,9 @@ footer{font-size:.78rem;color:var(--muted);text-align:center;padding:4px 8px}
     <div class="sep"></div>
     <div class="row"><div class="t">Externer Alarm<small>nur falls ein Melder angeschlossen ist</small></div>
       <label class="switch" aria-label="Externer Alarm"><input type="checkbox" id="aX" role="switch"><span></span></label></div>
-    <a class="btn btn-sec" id="bAlarm" href="#">Warnungen speichern</a>
-    <p class="hint" id="aSms" style="font-family:var(--mono);text-align:center"></p>
-    <p class="hint">Nach einer Warnung schaltet das Modul sie ab – einfach hier noch einmal speichern. Die Warnungen gehen an die Nummer, die damals in der alten App eingetragen wurde.</p>
+    <p class="hint">Unten auf „Warnungen senden" tippen. Nach einer Warnung schaltet das Modul sie ab – dann einfach noch einmal senden. Die Warnungen gehen an die Nummer, die damals in der alten App eingetragen wurde.</p>
   </section>
+  </div>
 
   <section class="card sheet" id="settings" hidden>
     <h2>Einstellungen</h2>
@@ -229,20 +238,25 @@ function render(){
   $('hero').classList.toggle('off-state',!S.P);
   $('pHint').textContent = S.P ? 'Zieltemperatur innen' : 'Heizung wird ausgeschaltet';
   seg('sE','E'); seg('sW','W');
-  $('smsPreview').textContent = S.num ? `an ${S.num}: ${smsText()}` : smsText();
-  $('bSend').href = href(smsText()); $('bStatus').href = href(`${S.code} 4`);
-  $('bSend').textContent = S.P ? 'Senden' : 'Heizung aus senden';
+  const heat = view==='heat';
+  $('viewHeat').hidden = !heat; $('viewAlarm').hidden = heat;
+  $('tabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.view===view)));
+  const txt = curText();
+  $('smsPreview').textContent = S.num ? `an ${S.num}: ${txt}` : txt;
+  $('bSend').href = href(txt); $('bStatus').href = href(`${S.code} 4`);
+  $('bSend').textContent = heat ? (S.P ? 'Heizung senden' : 'Heizung aus senden') : 'Warnungen senden';
   for(const k of ['aT','aV','aX','aE']) $(k).checked=!!S[k];
   $('aOut').innerHTML = S.aTh + ' <small>°C</small>';
   $('aTempBox').hidden = !S.aT;
-  $('aSms').textContent = alarmText();
-  $('bAlarm').href = href(alarmText());
 }
+let view = 'heat';
+const curText = () => view==='heat' ? smsText() : alarmText();
+$('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ view=b.dataset.view; render(); scrollTo({top:0}); });
 function needNum(ev){
   if(S.num) return false;
   ev.preventDefault(); $('settings').hidden=false; $('iNum').focus(); toast('Erst die Nummer eintragen'); return true;
 }
-$('bSend').addEventListener('click',ev=>{ if(!needNum(ev)) $('bSend').href=href(smsText()); });
+$('bSend').addEventListener('click',ev=>{ if(!needNum(ev)) $('bSend').href=href(curText()); });
 $('bStatus').addEventListener('click',ev=>{ if(!needNum(ev)) $('bStatus').href=href(`${S.code} 4`); });
 $('bCode').addEventListener('click',ev=>{
   const n=$('iNew').value.trim();
@@ -250,7 +264,6 @@ $('bCode').addEventListener('click',ev=>{
   if(!/^\d{4}$/.test(n)){ ev.preventDefault(); toast('Neuer Code: genau 4 Ziffern'); return; }
   $('bCode').href=href(`${S.code} 9${n}${n}`);
 });
-$('bAlarm').addEventListener('click',ev=>{ if(!needNum(ev)) $('bAlarm').href=href(alarmText()); });
 for(const k of ['aT','aV','aX','aE']) $(k).onchange=e=>{ S[k]=e.target.checked?1:0; save(); render(); };
 $('aMinus').onclick=()=>{ S.aTh=Math.max(1,S.aTh-1); save(); render(); };
 $('aPlus').onclick=()=>{ S.aTh=Math.min(15,S.aTh+1); save(); render(); };

@@ -146,9 +146,29 @@ footer{font-size:.78rem;color:var(--muted);text-align:center;padding:4px 8px}
     <div class="sep"></div>
     <div class="row"><div class="t">Zusatzausgang<small>z. B. Licht – nur falls angeschlossen</small></div>
       <label class="switch" aria-label="Zusatzausgang"><input type="checkbox" id="cX" role="switch"><span></span></label></div>
+  </section>
+
+  <section class="card">
+    <span class="label">Warnungen per SMS</span>
+    <div class="row"><div class="t">Frostwarnung<small>wenn es innen kälter wird als</small></div>
+      <label class="switch" aria-label="Frostwarnung"><input type="checkbox" id="aT" role="switch"><span></span></label></div>
+    <div class="temp" id="aTempBox" style="grid-template-columns:48px 1fr 48px;margin:0">
+      <button class="round" id="aMinus" aria-label="Warnschwelle senken" style="width:48px;height:48px;font-size:1.6rem">−</button>
+      <output id="aOut" style="font-size:2.2rem">2 <small>°C</small></output>
+      <button class="round" id="aPlus" aria-label="Warnschwelle erhöhen" style="width:48px;height:48px;font-size:1.6rem">+</button>
+    </div>
     <div class="sep"></div>
-    <div class="row"><div class="t">Alarme aktiv<small>Frost, Batterie, Störungen – per SMS</small></div>
-      <span class="hint" style="color:var(--ok);font-weight:600">immer an</span></div>
+    <div class="row"><div class="t">Batterie schwach<small>unter 11 Volt</small></div>
+      <label class="switch" aria-label="Batteriewarnung"><input type="checkbox" id="aV" role="switch"><span></span></label></div>
+    <div class="sep"></div>
+    <div class="row"><div class="t">Störung der Heizung<small>Fehlermeldungen der Alde</small></div>
+      <label class="switch" aria-label="Störungsmeldungen"><input type="checkbox" id="aE" role="switch"><span></span></label></div>
+    <div class="sep"></div>
+    <div class="row"><div class="t">Externer Alarm<small>nur falls ein Melder angeschlossen ist</small></div>
+      <label class="switch" aria-label="Externer Alarm"><input type="checkbox" id="aX" role="switch"><span></span></label></div>
+    <a class="btn btn-sec" id="bAlarm" href="#">Warnungen speichern</a>
+    <p class="hint" id="aSms" style="font-family:var(--mono);text-align:center"></p>
+    <p class="hint">Nach einer Warnung schaltet das Modul sie ab – einfach hier noch einmal speichern. Die Warnungen gehen an die Nummer, die damals in der alten App eingetragen wurde.</p>
   </section>
 
   <section class="card sheet" id="settings" hidden>
@@ -179,12 +199,15 @@ footer{font-size:.78rem;color:var(--muted);text-align:center;padding:4px 8px}
 // Alde Smart Control – SMS-Aufbau:
 // CODE  1x (Zusatzausgang 0/1)  2x (Kühlschrank 0/1)  A (Alarme)  P (Heizung 0/1)  T (Temp. in Zehntelgrad)  W (Warmwasser 0/1/2)  E (Strom 0–3 kW)  G (Gas 0/1)
 // Status-Abfrage: CODE 4 · Code ändern: CODE 9NEUNEU
+// Warnungen (aus der Original-App abgelesen): CODE 71<Frost><Batterie><Extern><Störung> 851 73<Schwelle zweistellig> 4
+//   Beispiel 0000 711101 851 7302 4 → Frost an bei 2 °C, Batterie an, Extern aus, Störungen an (+ Statusantwort)
 const $ = id => document.getElementById(id);
 const mem = {
   get(k,d){ try{ const v=localStorage.getItem('alde.'+k); return v===null?d:JSON.parse(v);}catch(e){return d} },
   set(k,v){ try{ localStorage.setItem('alde.'+k,JSON.stringify(v)); }catch(e){} }
 };
-const S = Object.assign({num:'',code:'0000',P:1,T:210,W:0,E:0,G:1,F:1,X:0}, mem.get('state',{}));
+const S = Object.assign({num:'',code:'0000',P:1,T:210,W:0,E:0,G:1,F:1,X:0,aT:1,aV:1,aX:0,aE:1,aTh:2}, mem.get('state',{}));
+const alarmText = () => `${S.code} 71${S.aT}${S.aV}${S.aX}${S.aE} 851 73${String(S.aTh).padStart(2,'0')} 4`;
 const save = () => mem.set('state',S);
 const clean = n => n.replace(/[^\d+]/g,'');
 // Heizung aus: so, wie die Original-App es geschickt hat (Kurzform ohne T/W/E/G)
@@ -209,6 +232,11 @@ function render(){
   $('smsPreview').textContent = S.num ? `an ${S.num}: ${smsText()}` : smsText();
   $('bSend').href = href(smsText()); $('bStatus').href = href(`${S.code} 4`);
   $('bSend').textContent = S.P ? 'Senden' : 'Heizung aus senden';
+  for(const k of ['aT','aV','aX','aE']) $(k).checked=!!S[k];
+  $('aOut').innerHTML = S.aTh + ' <small>°C</small>';
+  $('aTempBox').hidden = !S.aT;
+  $('aSms').textContent = alarmText();
+  $('bAlarm').href = href(alarmText());
 }
 function needNum(ev){
   if(S.num) return false;
@@ -222,6 +250,10 @@ $('bCode').addEventListener('click',ev=>{
   if(!/^\d{4}$/.test(n)){ ev.preventDefault(); toast('Neuer Code: genau 4 Ziffern'); return; }
   $('bCode').href=href(`${S.code} 9${n}${n}`);
 });
+$('bAlarm').addEventListener('click',ev=>{ if(!needNum(ev)) $('bAlarm').href=href(alarmText()); });
+for(const k of ['aT','aV','aX','aE']) $(k).onchange=e=>{ S[k]=e.target.checked?1:0; save(); render(); };
+$('aMinus').onclick=()=>{ S.aTh=Math.max(1,S.aTh-1); save(); render(); };
+$('aPlus').onclick=()=>{ S.aTh=Math.min(15,S.aTh+1); save(); render(); };
 $('tMinus').onclick=()=>{ S.T=Math.max(50,S.T-5); save(); render(); };
 $('tPlus').onclick=()=>{ S.T=Math.min(300,S.T+5); save(); render(); };
 for(const [id,k] of [['cP','P'],['cG','G'],['cF','F'],['cX','X']]) $(id).onchange=e=>{ S[k]=e.target.checked?1:0; save(); render(); };
